@@ -2,6 +2,7 @@
 
 <div align="center">
 
+[![arXiv](https://img.shields.io/badge/arXiv-2611.27876-B31B1B.svg)](https://arxiv.org/abs/2611.27876)&#160;
 [![GitHub](https://img.shields.io/badge/GitHub-LesionAgent-181717?logo=github&logoColor=white)](https://github.com/MIC-DKFZ/LesionAgent)&#160;
 [![Code](https://img.shields.io/badge/code-coming%20soon-lightgrey)](#roadmap)&#160;
 [![napari](https://badgen.net/badge/napari/reading%20app/80d1ff?icon=https://raw.githubusercontent.com/napari/napari/8b74cdfb205338a20a2e63dcbba048007ecd2309/src/napari/resources/logos/gradient-plain-light.svg)](#napari-app)
@@ -16,7 +17,14 @@ This repository contains the official implementation of our paper:
 
 LesionAgent is an **LLM agent that reads a cancer patient's CT scans end to end**, from the images to the RECIST 1.1 response at every visit, **without any task-specific training**. It operates frozen **3D foundation models as tools**, acts in 3D through **coordinate-labelled views**, remembers every lesion across visits in a **lesion registry**, **verifies every model output** it relies on, and leaves every number to a **deterministic guideline engine**. The harness is **model-agnostic**: it runs with Claude or with an open-weight LLM that can stay inside the hospital.
 
-> **Authors**: Maximilian Rokuss, Jeya Maria Jose Valanarasu, Alejandro Lozano, Benjamin Hamm, Yannick Kirchhoff, Fabian Isensee, Klaus Maier-Hein
+> **Authors**: Maximilian Rokuss, Jeya Maria Jose Valanarasu, Alejandro Lozano, Benjamin Hamm, Yannick Kirchhoff, Fabian Isensee, Klaus Maier-Hein  
+> **Paper**: [![arXiv](https://img.shields.io/badge/arXiv-2611.27876-B31B1B.svg)](https://arxiv.org/abs/2611.27876)
+
+---
+
+## 📰 News
+
+- **11/2026**: 📄 Preprint released on [arXiv](https://arxiv.org/abs/2611.27876)!
 
 ---
 
@@ -50,7 +58,7 @@ At baseline, VoxTell proposes lesion candidates and the agent accepts or rejects
 - 🧊 **Training-free**: frozen 3D foundation models as tools, no task-specific training. All tools run on a single 24 GB GPU.
 - 🧾 **Every number traceable**: a deterministic guideline engine computes every measurement and RECIST 1.1 category from the lesion masks, and every lesion, tool call and decision behind the response stays visible.
 - 🩺 **Clinician in the loop**: read fully automatically, or together with the clinician in the [napari app](#napari-app).
-- 📈 **Strong results**: on four public longitudinal CT datasets, LesionAgent tracks more lesions and measures them more accurately than every automatic baseline. See the paper for all results.
+- 📈 **Strong results**: on four public longitudinal CT datasets, LesionAgent tracks more lesions and measures them more accurately than every automatic baseline. See the [paper](https://arxiv.org/abs/2611.27876) for all results.
 
 ---
 
@@ -74,7 +82,7 @@ LesionAgent comes with a reading app for [napari](https://napari.org/) that work
 
 ## 🗺️ Roadmap
 
-- [x] **Paper Published** on arXiv
+- [x] **Paper Published**: [arXiv:2611.27876](https://arxiv.org/abs/2611.27876)
 - [ ] **Code Release**: the LesionAgent harness, with the lesion registry, the 18 tools, the RECIST skill and the guideline engine
 - [ ] **CLI & Python API**: read any series of CT scans (NIfTI), fully automatically or with a clinician
 - [ ] **napari Reading App**: live reads with the clinician in the loop
@@ -99,7 +107,7 @@ If you find our work useful, please consider citing:
 @article{rokuss2026lesionagent,
       title={LesionAgent: Training-Free Agentic Tumor Tracking and Response Assessment in Longitudinal CT},
       author={Rokuss, Maximilian and Valanarasu, Jeya Maria Jose and Lozano, Alejandro and Hamm, Benjamin and Kirchhoff, Yannick and Isensee, Fabian and Maier-Hein, Klaus},
-      journal={arXiv preprint},
+      journal={arXiv preprint arXiv:2611.27876},
       year={2026}
 }
 ```
