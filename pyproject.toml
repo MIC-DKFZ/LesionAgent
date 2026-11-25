@@ -1,0 +1,55 @@
+[project]
+name = "lesionagent"
+version = "0.1.0"
+description = "LesionAgent: an LLM agent that reads longitudinal CT end to end, from the images to the RECIST 1.1 response, with 3D foundation models as tools"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Maximilian Rokuss" }]
+keywords = ["RECIST", "tumor response", "lesion detection", "lesion segmentation", "lesion tracking", "CT",
+            "LLM agent", "medical imaging"]
+dependencies = [
+    # harness, registry, guideline engine, renderer
+    "claude-agent-sdk>=0.2.165",
+    "numpy",
+    "scipy",
+    "connected-components-3d",
+    "SimpleITK",
+    "matplotlib",
+    "scikit-image>=0.26",
+    "pillow",
+    # the perception models
+    "torch>=2.1.2",
+    "voxtell>=0.1.2",
+    "nnInteractive>=2.6.0",
+    "TotalSegmentator>=2.18",
+    "nnunetv2>=2.8",
+    "huggingface-hub",
+    # LongiTrack and its registration (uniGradICON); not on PyPI
+    "longitrack-backend[gpu] @ git+https://github.com/MIC-DKFZ/LongiTrack-backend.git@v0.1.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+homepage = "https://github.com/MIC-DKFZ/LesionAgent"
+repository = "https://github.com/MIC-DKFZ/LesionAgent"
+paper = "https://arxiv.org/abs/2611.27876"
+
+[project.scripts]
+lesionagent = "lesionagent.cli:main"
+
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+lesionagent = ["skill/*.md", "skill/reference/*.md", "tasks/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

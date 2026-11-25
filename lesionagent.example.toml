@@ -1,0 +1,15 @@
+# Example settings for LesionAgent. Copy this file to lesionagent.toml in the folder you run from,
+# or pass it with --config. Every entry is optional: without it, LesionAgent uses the newest release
+# of each model and Claude (opus, high effort).
+
+[models]  # pinned versions (the ones used in the paper)
+voxtell = "voxtell_v1.1"
+nninteractive = "nnInteractive_v1.0"
+longitrack = "1.0"
+
+[llm]
+model = "opus"
+effort = "high"
+# url = "http://localhost:8000"   # an Anthropic-compatible server instead of Claude, e.g. vLLM
+# api_key_file = "~/.keys/llm"
+# max_context_tokens = 131072     # context window of the model on your own server
