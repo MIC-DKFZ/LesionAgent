@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import importlib
 import json
 import os
 import re
@@ -31,6 +32,7 @@ from .workspace import RecistWorkspace
 
 SKILL_DIR = Path(__file__).parent / "skill"
 SERVER = "recist"
+BACKENDS = {"codex": ("lesionagent.codex", "Codex"), "agy": ("lesionagent.agy", "Antigravity")}
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 DEFAULT_MODEL, DEFAULT_EFFORT = "opus", "high"
 DEFAULT_CONTEXT_TOKENS = 131072  # for a model on an own server; `max_context_tokens` in the settings file
@@ -61,22 +63,38 @@ class AgentEvent:
 class LLM:
     """The model that drives the agent, and the environment of the Claude Code process that talks to it."""
 
-    model: str = DEFAULT_MODEL
+    model: str | None = DEFAULT_MODEL
     effort: str | None = DEFAULT_EFFORT  # None: the server takes no effort setting
     env: dict = field(default_factory=dict, repr=False)  # may hold a key
     label: str = "Claude"
     report_cost: bool = True  # False when Claude Code's prices do not apply (an own server)
+    backend: str = "claude"
 
 
 # ---------------------------------------------------------------------------------------------- LLM
 def resolve_llm(model: str | None = None, effort: str | None = None, url: str | None = None,
-                api_key_file: str | Path | None = None, check: bool = True) -> LLM:  # fmt: skip
+                api_key_file: str | Path | None = None, check: bool = True, backend: str | None = None) -> LLM:  # fmt: skip
     """The LLM for a read. Arguments win over the `[llm]` table of the settings file (config.py).
 
     Without `url`: Claude, signed in the way Claude Code is (its login, `ANTHROPIC_API_KEY`, or the key in
     `api_key_file`). With `url`: the model `model` on that Anthropic-compatible server; `check` asks the server
     first whether it has the model and which efforts it takes. Raises LLMError."""
     c = config.get().llm
+    backend = backend or c.backend
+    if backend in BACKENDS:
+        import shutil
+        _, label = BACKENDS[backend]
+        if url or c.url or api_key_file or c.api_key_file or c.max_context_tokens is not None:
+            raise LLMError(f"{label} uses its own login; --llm-url, --api-key-file and max_context_tokens "
+                           "apply to the Claude backend")
+        chosen_effort = effort or c.effort
+        if chosen_effort is not None and chosen_effort not in EFFORTS:
+            raise LLMError(f"unknown effort {chosen_effort!r}; one of {', '.join(EFFORTS)}")
+        if not shutil.which(backend):
+            raise LLMError(f"install the {label} CLI (`{backend}`) and sign in first")
+        return LLM(model or c.model, chosen_effort, label=label, report_cost=False, backend=backend)
+    if backend != "claude":
+        raise LLMError(f"unknown backend {backend!r}: choose {', '.join(('claude', *BACKENDS))}")
     model, effort, url = model or c.model, effort or c.effort or DEFAULT_EFFORT, url or c.url
     key_file = api_key_file or c.api_key_file
     if effort not in EFFORTS:
@@ -184,14 +202,69 @@ def _clean_env() -> None:
 
 
 # ---------------------------------------------------------------------------------------------- session
-class AgentSession:
-    """A Claude Agent SDK conversation bound to one workspace."""
+class ReadingSession:
+    """Instructions, callbacks and usage log shared by reading clients."""
 
     def __init__(self, ws: RecistWorkspace, on_event: Callable[[AgentEvent], None], llm: LLM | None = None):
         self.ws, self.on_event, self.llm = ws, on_event, llm or LLM()
-        self.client = None
-        self.total_cost = 0.0
         self.limit_hit = None
+        self.observed_model = None
+
+    def system_prompt(self) -> str:
+        notes = []
+        if getattr(self.ws.clinician, "name", "none") != "none":
+            notes.append("A clinician is available in this session (`ask_clinician`): confirm the target set with them "
+                         "before `set_targets` (see the skill).")  # fmt: skip
+        return HOST_PROMPT + skill_prompt() + ("\n\n# This run\n\n" + "\n".join(notes) + "\n" if notes else "")
+
+    def _log_usage(self, rec: dict) -> None:
+        try:
+            with open(self.ws.workdir / "usage.jsonl", "a") as f:
+                f.write(json.dumps({"time": round(time.time(), 2), **rec}, default=str) + "\n")
+        except OSError:
+            pass
+
+    async def _tool(self, name: str, args: dict):
+        self.on_event(AgentEvent("tool_call", tool=name, args=args))
+        out = await asyncio.to_thread(call_tool, self.ws, name, args)
+        self.on_event(AgentEvent("tool_result", out.text, name, args, out.images, out.is_error))
+        return out
+
+    @staticmethod
+    async def _stop_process(proc) -> None:
+        if proc is None:
+            return
+        if proc.stdin and not proc.stdin.is_closing():
+            try:
+                proc.stdin.close()
+            except Exception:  # noqa: BLE001
+                pass
+        if proc.returncode is None:
+            proc.terminate()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+
+    def _record_error(self, exc: BaseException, fallback: str) -> None:
+        msg = str(exc) or fallback
+        if _LIMIT_RE.search(msg):
+            self.limit_hit = msg
+        self.on_event(AgentEvent("error", msg, is_error=True))
+
+    async def interrupt(self):
+        pass
+
+    async def close(self):
+        pass
+
+
+class AgentSession(ReadingSession):
+    """A Claude Agent SDK conversation bound to one workspace."""
+
+    client = None
+    total_cost = 0.0
 
     def _server(self):
         from claude_agent_sdk import SdkMcpTool, ToolAnnotations, create_sdk_mcp_server
@@ -221,20 +294,6 @@ class AgentSession:
             model=self.llm.model, effort=self.llm.effort, cwd=str(self.ws.workdir),
             max_buffer_size=64 * 1024 * 1024, env=env,
         )  # fmt: skip
-
-    def system_prompt(self) -> str:
-        notes = []
-        if getattr(self.ws.clinician, "name", "none") != "none":
-            notes.append("A clinician is available in this session (`ask_clinician`): confirm the target set with them "
-                         "before `set_targets` (see the skill).")  # fmt: skip
-        return HOST_PROMPT + skill_prompt() + ("\n\n# This run\n\n" + "\n".join(notes) + "\n" if notes else "")
-
-    def _log_usage(self, rec: dict) -> None:
-        try:
-            with open(self.ws.workdir / "usage.jsonl", "a") as f:
-                f.write(json.dumps({"time": round(time.time(), 2), **rec}, default=str) + "\n")
-        except OSError:
-            pass
 
     async def start(self):
         from claude_agent_sdk import ClaudeSDKClient
@@ -293,6 +352,9 @@ class AgentSession:
             self.client = None
 
 
-def make_session(ws: RecistWorkspace, on_event, llm: LLM | None = None) -> AgentSession:
+def make_session(ws: RecistWorkspace, on_event, llm: LLM | None = None) -> ReadingSession:
     """The agent session for `ws`; `llm` from `resolve_llm` (default: Claude, opus at high effort)."""
-    return AgentSession(ws, on_event, llm or resolve_llm())
+    llm = llm or resolve_llm()
+    if llm.backend in BACKENDS:
+        return importlib.import_module(BACKENDS[llm.backend][0]).Session(ws, on_event, llm)
+    return AgentSession(ws, on_event, llm)

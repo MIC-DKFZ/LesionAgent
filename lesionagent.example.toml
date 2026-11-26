@@ -8,7 +8,8 @@ nninteractive = "nnInteractive_v1.0"
 longitrack = "1.0"
 
 [llm]
-model = "opus"
+# backend = "claude"              # claude | codex | agy
+model = "opus"                    # with backend codex or agy: a model of that client, or remove this line
 effort = "high"
 # url = "http://localhost:8000"   # an Anthropic-compatible server instead of Claude, e.g. vLLM
 # api_key_file = "~/.keys/llm"

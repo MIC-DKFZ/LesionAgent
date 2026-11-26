@@ -35,6 +35,10 @@ class _ReadLog:
 
 
 def _llm_args(p) -> None:
+    from .runtime import BACKENDS
+
+    p.add_argument("--llm", dest="backend", choices=("claude", *BACKENDS),
+                   help="LLM client: claude (default), codex or agy")
     p.add_argument("--model", help="LLM: a Claude alias (opus, sonnet), a model id, or the model on --llm-url")
     p.add_argument("--effort", help="reasoning effort: low | medium | high | xhigh (default high)")
     p.add_argument("--llm-url", help="an Anthropic-compatible server instead of Claude, e.g. vLLM at http://localhost:8000")
@@ -45,7 +49,7 @@ def _llm_args(p) -> None:
 def _llm(a):
     from .runtime import resolve_llm
 
-    return resolve_llm(a.model, a.effort, a.llm_url, a.api_key_file)
+    return resolve_llm(a.model, a.effort, a.llm_url, a.api_key_file, backend=a.backend)
 
 
 def _lesion_table(ws) -> str:
@@ -68,7 +72,7 @@ def cmd_run(a) -> int:
     llm = _llm(a)
     with contextlib.redirect_stdout(_ReadLog(sys.stdout)):
         result = read(study, a.out, task=a.task, llm=llm, log=lambda s: print(s, flush=True))
-    if result.report is not None:
+    if result.report is not None and result.run["finished"]:
         print(f"\n{(result.out / 'report.md').read_text()}\nreport and masks: {result.out}")
         return 0
     if a.task is None or not result.run["finished"]:  # the default task ends with the RECIST report

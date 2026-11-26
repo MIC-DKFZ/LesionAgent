@@ -112,7 +112,7 @@ def read(study: Study, out=None, *, task: str | None = None, llm: LLM | None = N
             last["finished"] = ev.kind == "done" and not ev.is_error
             log(f"{pre} {ev.kind.upper()}: {ev.text[:300]}" + (f" cost ${ev.cost_usd:.2f}" if ev.cost_usd else ""))
 
-    log(f"output {out}\nLLM {llm.label}: model {llm.model}, effort {llm.effort or 'server default'}\nTASK: {text}\n")
+    log(f"output {out}\nLLM {llm.label}: model {llm.model or 'default'}, effort {llm.effort or 'default'}\nTASK: {text}\n")
     (out / "task.txt").write_text(text)
     sessions = []
 
@@ -134,8 +134,10 @@ def read(study: Study, out=None, *, task: str | None = None, llm: LLM | None = N
             ws.save()
         except Exception as e:  # noqa: BLE001
             log(f"save failed: {e}")
+        model = sessions[0].observed_model if sessions else None
         run = {"lesionagent": version("lesionagent"), "images": [os.path.abspath(v.path) for v in study.visits],
-               "days": [v.day for v in study.visits], "llm": llm.label, "model": llm.model, "effort": llm.effort,
+               "days": [v.day for v in study.visits], "backend": llm.backend, "llm": llm.label,
+               "model": model or llm.model, "effort": llm.effort,
                "models": dict(models.VERSIONS), "seconds": round(time.time() - t0, 1),
                "tool_calls": sum(1 for _ in open(out / "log.jsonl")) if (out / "log.jsonl").exists() else 0,
                "model_calls": ws.n_model_calls, "questions": len(ws.questions),

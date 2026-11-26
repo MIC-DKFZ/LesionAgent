@@ -56,6 +56,29 @@ def _totalsegmentator():
 
 def _ask_llm(llm):
     """One message without tools through the same harness as a read."""
+    from .runtime import BACKENDS, LLMError, make_session
+
+    if llm.backend in BACKENDS:
+        async def go_backend():
+            import tempfile
+            from pathlib import Path
+            from types import SimpleNamespace
+
+            replies: list[str] = []
+            with tempfile.TemporaryDirectory(prefix="lesionagent-probe-") as tmp:
+                ws = SimpleNamespace(workdir=Path(tmp), clinician=None)
+                on_ev = lambda ev: replies.append(ev.text.strip()) if ev.kind == "text" and ev.text.strip() else None
+                session = make_session(ws, on_ev, llm)
+                try:
+                    await session.start(with_tools=False)
+                    await session.send("Reply with the word ready.")
+                finally:
+                    await session.close()
+            if not replies:
+                raise LLMError(f"{llm.label} returned no answer to the setup probe")
+            return f"answered {replies[-1][:40]!r}"
+
+        return asyncio.run(go_backend())
     from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, TextBlock, query
 
     from .runtime import _clean_env
@@ -96,7 +119,7 @@ def setup(get_llm, models: bool = True, llm: bool = True) -> int:
 
         def resolve():
             box["llm"] = get_llm()
-            return f"{box['llm'].label}, model {box['llm'].model}, effort {box['llm'].effort or 'server default'}"
+            return f"{box['llm'].label}, model {box['llm'].model or 'default'}, effort {box['llm'].effort or 'default'}"
 
         if _step("settings", resolve):
             ok &= _step("test message", lambda: _ask_llm(box["llm"]))

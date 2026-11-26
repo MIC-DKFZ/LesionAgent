@@ -129,6 +129,10 @@ Without `--task`, LesionAgent does the full RECIST 1.1 read. `lesions` reports e
 | A Claude subscription | log in once with [Claude Code](https://claude.com/claude-code) (`claude`), then `lesionagent run ...` |
 | An Anthropic API key | `export ANTHROPIC_API_KEY=...` or `--api-key-file FILE` |
 | An open-weight LLM on your own server | `lesionagent run ... --llm-url http://localhost:8000 --model Qwen/Qwen3.8-27B` |
+| A ChatGPT subscription | log in once with [Codex](https://github.com/openai/codex) (`codex login`), then `lesionagent run ... --llm codex` |
+| A Google account with Antigravity | log in once with `agy`, then `lesionagent run ... --llm agy` |
+
+`--llm` (or `backend` under `[llm]` in `lesionagent.toml`) selects the client: `claude` (default), `codex` or `agy`. All of them use the same tools, skill and outputs; the rendered views go to the provider of the model you choose.
 
 `--llm-url` takes any server that speaks the Anthropic Messages API, such as [vLLM](https://github.com/vllm-project/vllm). The model must see images, also inside tool results, and call tools. `--model` and `--effort` choose the model and its reasoning effort (default: `opus`, `high`). Current open-weight LLMs complete the read, but their results are weaker than frontier models.
 

@@ -31,6 +31,7 @@ ENV_VAR = "LESIONAGENT_CONFIG"
 
 @dataclass
 class LLMConfig:
+    backend: str = "claude"
     model: str | None = None
     effort: str | None = None
     url: str | None = None
